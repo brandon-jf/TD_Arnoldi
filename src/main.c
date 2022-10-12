@@ -16,10 +16,14 @@ int main(int argc, char** argv){
   double* v; // Vecteur initial
   double* Vm; //vecteur caculer par arnoldi
   int start, end;
-  unsigned long duree_ns[1000];
-  double duree_mean, variance;
-  int duree_ipc;
+  unsigned long duree_ns[100]; //Tableau de durée d'execution
+  unsigned long duree_ms[100]; //tableau  de durée d'execution
+  double duree_mean_ns,duree_mean_ms; //temps d'executions moyenne clock_gettime, clock
+  double variance_ns, variance_ms;  // Variance des temps d'executions en nano et µs
+  double ecart_type_ns, ecart_type_ms; // Ecart-tpes en ns et µs
+  double min_ms,min_ns,max_ms,max_ns;
   struct timespec t1,t2;
+  clock_t a,b;
   FILE* fp;
   if(argc == 4){
    m = atoi(argv[1]);
@@ -47,37 +51,52 @@ int main(int argc, char** argv){
 //  if((strcmp(first,"# dimension\tdurée"))==0){
 //    fprintf(fp,"# dimension\tduree\n");
 //  }
-  duree_mean = 0;
-  variance = 0;
-  for(int c = 0; c < 1000; c ++){
+  duree_mean_ns = 0.0;
+  duree_mean_ms = 0.0;
+  variance_ns = 0;
+  variance_ms = 0;
+  for(int c = 0; c < 100; c ++){
+      a = clock();
       start = clock_gettime(CLOCK_REALTIME, &t1);
       Vm = ArnoldiProjection ( n, m, v, matrice);
       end = clock_gettime(CLOCK_REALTIME, &t2);
+      b = clock();
       if ((t2.tv_nsec-t1.tv_nsec)<0)
       {
         duree_ns[c] = 1000000000+t2.tv_nsec-t1.tv_nsec;
-        duree_mean = duree_mean+duree_ns[c];
+        duree_mean_ns = duree_mean_ns + duree_ns[c];
       }
       else
       {
         duree_ns[c] = t2.tv_nsec-t1.tv_nsec;
-        duree_mean = duree_mean+duree_ns[c];
+        duree_mean_ns = duree_mean_ns + duree_ns[c];
       }
+      duree_ms[c] = (b-a);
+      duree_mean_ms = duree_mean_ms + (double) duree_ms[c];
     //  variance = duree_ns[c]*duree_ns[c] + variance;
   }
-  duree_mean = duree_mean/1000;
-  for(int c = 0; c < 1000; c ++){
-    variance = variance + (duree_ns[c]-duree_mean)*(duree_ns[c]-duree_mean);
-    printf("variance %ld\n",variance);
+
+  duree_mean_ns = duree_mean_ns/100;
+  duree_mean_ms = duree_mean_ms/100.0;
+  for(int c = 0; c < 100; c ++){
+    variance_ns = variance_ns + (duree_ns[c]-duree_mean_ns)*(duree_ns[c]-duree_mean_ns);
+      variance_ms = variance_ms + (duree_ms[c]-duree_mean_ms)*(duree_ms[c]-duree_mean_ms);
+  //  printf("variance %ld\n",variance);
   }
-  variance = variance/1000;
+  variance_ns = variance_ns/100.0;
+  variance_ms = variance_ms/100.0;
+  ecart_type_ms = sqrt(variance_ms);
+  ecart_type_ns = sqrt(variance_ns);
 //  duree_ns = (double)(t2.tv_sec-t1.tv_sec)/100 + (t2.tv_nsec-t1.tv_nsec)/(double)BILLION;
+  min_ms = duree_mean_ms - 3*ecart_type_ms;
+  min_ns = duree_mean_ns -3*ecart_type_ns;
+  max_ms = duree_mean_ms + 3*ecart_type_ms;
+  max_ns = duree_mean_ns + 3*ecart_type_ns;
 
 
-  fprintf(fp,"%d\t%ld\t%ld\n",n, duree_mean, variance);
-  duree_ipc = (end - start)/100;
-  printf("Durée d'execution moyenne sur 1000 boucle : %ld ns \n", duree_mean);
-  printf("variance de la Durée d'execution  sur 1000 boucle : %ld ns \n", variance);
+  fprintf(fp,"%d\t%lf\t%lf\t%lf\n",n, duree_mean_ns,min_ns,max_ns );
+  printf("Durée d'execution moyenne clock_gettime sur 100 boucle : %lf ns +/- %lf \n", duree_mean_ns, ecart_type_ns);
+  printf("Durée d'execution boyenne  clock sur 100 boucle : %lf ns +/- %lf \n", duree_mean_ms, ecart_type_ms);
 //  free(v);
 //  free(Vm);
 //  free(matrice);
